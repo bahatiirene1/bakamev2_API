@@ -5,10 +5,14 @@
   "functions": {
     "api/index.ts": {
       "includeFiles": "dist/**"
+    },
+    "api/debug.ts": {
+      "includeFiles": "dist/**"
     }
   },
   "routes": [
     { "src": "/test", "dest": "/api/test.ts" },
+    { "src": "/debug", "dest": "/api/debug.ts" },
     { "src": "/api/(.*)", "dest": "/api/index.ts" },
     { "src": "/(.*)", "dest": "/api/index.ts" }
   ]
