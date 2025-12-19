@@ -23,6 +23,16 @@ interface AuthMiddlewareDeps {
       error?: { code: string; message: string };
     }>;
   };
+  userService?: {
+    getUser: (
+      actor: ActorContext,
+      userId: string
+    ) => Promise<{ success: boolean; data?: unknown; error?: unknown }>;
+    onUserSignup: (
+      actor: ActorContext,
+      params: { authUserId: string; email: string }
+    ) => Promise<{ success: boolean; data?: unknown; error?: unknown }>;
+  };
 }
 
 /**
@@ -51,7 +61,7 @@ function isAdmin(permissions: string[]): boolean {
  * Extracts JWT, verifies with Supabase, constructs ActorContext
  */
 export function createAuthMiddleware(deps: AuthMiddlewareDeps) {
-  const { supabaseClient, authService } = deps;
+  const { supabaseClient, authService, userService } = deps;
 
   return async function authMiddleware(c: Context, next: Next) {
     const requestId = generateRequestId();
@@ -105,6 +115,35 @@ export function createAuthMiddleware(deps: AuthMiddlewareDeps) {
           },
           401
         );
+      }
+
+      // 2.5 Ensure user exists in application database
+      // This handles first-time users who authenticated via Supabase
+      if (userService) {
+        const systemActor: ActorContext = {
+          type: 'system',
+          requestId,
+          permissions: ['*'],
+        };
+
+        // Check if user exists
+        const existingUser = await userService.getUser(systemActor, user.id);
+
+        if (!existingUser.success) {
+          // User doesn't exist, create them
+          const createResult = await userService.onUserSignup(systemActor, {
+            authUserId: user.id,
+            email: user.email ?? '',
+          });
+
+          if (!createResult.success) {
+            console.error(
+              'Failed to create user on first auth:',
+              createResult.error
+            );
+            // Continue anyway - some features may not work but basic auth should
+          }
+        }
       }
 
       // 3. Resolve permissions via AuthService

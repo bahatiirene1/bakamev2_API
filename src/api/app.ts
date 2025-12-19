@@ -67,6 +67,7 @@ export function createApp(config: AppConfig): Hono {
         return result;
       },
     },
+    userService: services.userService as any,
   });
 
   // Protected routes

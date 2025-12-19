@@ -149,6 +149,26 @@ export function createUserServiceDb(supabase: SupabaseClient): UserServiceDb {
         throw new Error(`Failed to create user: ${error.message}`);
       }
 
+      // Assign default 'user' role
+      try {
+        const { data: roleData } = await supabase
+          .from('roles')
+          .select('id')
+          .eq('name', 'user')
+          .single();
+
+        if (roleData) {
+          await supabase.from('user_roles').insert({
+            user_id: params.id,
+            role_id: roleData.id,
+            granted_by: 'system',
+          });
+        }
+      } catch {
+        // Role assignment is non-critical, continue even if it fails
+        console.error('Failed to assign default user role');
+      }
+
       return mapRowToUser(data as UserRow);
     },
 
