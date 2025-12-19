@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment files
+.env
+.env.local
+.env.test
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Coverage
+coverage/
+
+# Test artifacts
+.vitest/
+
+# Supabase
+.supabase/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Editor backup files
+*~
+.admin-token
+.vercel

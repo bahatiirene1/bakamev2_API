@@ -1,0 +1,1023 @@
+openapi: 3.1.0
+info:
+  title: Bakame API
+  version: 1.0.0
+  description: |
+    Bakame - Production-grade AI platform API
+
+    All endpoints except /health require Bearer token authentication.
+
+    Response Format:
+    - Success: { data: <payload>, meta: { requestId: string } }
+    - Error: { error: { code: string, message: string, requestId: string } }
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+tags:
+  - name: Health
+    description: Health check endpoints (public)
+  - name: Chats
+    description: Chat and message management
+  - name: Users
+    description: User profile and preferences
+  - name: Memories
+    description: User memory management
+  - name: Knowledge
+    description: Knowledge base management
+  - name: Tools
+    description: Available AI tools
+  - name: Subscription
+    description: Subscription and usage tracking
+  - name: Admin
+    description: Administrative endpoints (requires admin permission)
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Returns service health status. No authentication required.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+
+  /chats:
+    get:
+      tags: [Chats]
+      summary: List chats
+      operationId: listChats
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, archived]
+      responses:
+        '200':
+          description: Paginated list of chats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedChatList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Chats]
+      summary: Create chat
+      operationId: createChat
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                metadata:
+                  type: object
+      responses:
+        '201':
+          description: Chat created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /chats/{id}:
+    get:
+      tags: [Chats]
+      summary: Get chat
+      operationId: getChat
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      responses:
+        '200':
+          description: Chat details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [Chats]
+      summary: Update chat
+      operationId: updateChat
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+      responses:
+        '200':
+          description: Chat updated
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Chats]
+      summary: Archive chat
+      operationId: archiveChat
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      responses:
+        '204':
+          description: Chat archived
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /chats/{id}/messages:
+    get:
+      tags: [Chats]
+      summary: Get chat messages
+      operationId: getMessages
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated messages
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Chats]
+      summary: Add message
+      operationId: addMessage
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+                  maxLength: 32000
+      responses:
+        '201':
+          description: Message added
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Get current user profile
+      operationId: getProfile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+
+    patch:
+      tags: [Users]
+      summary: Update profile
+      operationId: updateProfile
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+                  nullable: true
+                avatarUrl:
+                  type: string
+                  nullable: true
+                timezone:
+                  type: string
+                locale:
+                  type: string
+      responses:
+        '200':
+          description: Profile updated
+
+  /users/me/preferences:
+    get:
+      tags: [Users]
+      summary: Get AI preferences
+      operationId: getPreferences
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: AI preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferencesResponse'
+
+    put:
+      tags: [Users]
+      summary: Update AI preferences
+      operationId: updatePreferences
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                responseLength:
+                  type: string
+                  enum: [concise, balanced, detailed]
+                formality:
+                  type: string
+                  enum: [casual, neutral, formal]
+                allowMemory:
+                  type: boolean
+                allowWebSearch:
+                  type: boolean
+                customInstructions:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Preferences updated
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /memories:
+    get:
+      tags: [Memories]
+      summary: List or search memories
+      operationId: listMemories
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          description: Search query (uses semantic search)
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of memories
+
+    post:
+      tags: [Memories]
+      summary: Create memory
+      operationId: createMemory
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                category:
+                  type: string
+                importance:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+      responses:
+        '201':
+          description: Memory created
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /memories/{id}:
+    get:
+      tags: [Memories]
+      summary: Get memory
+      operationId: getMemory
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MemoryId'
+      responses:
+        '200':
+          description: Memory details
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [Memories]
+      summary: Update memory
+      operationId: updateMemory
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MemoryId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                importance:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+      responses:
+        '200':
+          description: Memory updated
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Memories]
+      summary: Archive memory
+      operationId: archiveMemory
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MemoryId'
+      responses:
+        '204':
+          description: Memory archived
+
+  /knowledge:
+    get:
+      tags: [Knowledge]
+      summary: List knowledge items
+      operationId: listKnowledge
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Knowledge items
+
+    post:
+      tags: [Knowledge]
+      summary: Create knowledge item
+      operationId: createKnowledge
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, content]
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Knowledge item created
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /knowledge/{id}:
+    get:
+      tags: [Knowledge]
+      summary: Get knowledge item
+      operationId: getKnowledgeItem
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/KnowledgeId'
+      responses:
+        '200':
+          description: Knowledge item
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [Knowledge]
+      summary: Update knowledge item
+      operationId: updateKnowledgeItem
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/KnowledgeId'
+      responses:
+        '200':
+          description: Knowledge item updated
+
+  /knowledge/{id}/publish:
+    post:
+      tags: [Knowledge]
+      summary: Submit for review
+      operationId: publishKnowledge
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/KnowledgeId'
+      responses:
+        '200':
+          description: Submitted for review
+
+  /tools:
+    get:
+      tags: [Tools]
+      summary: List available tools
+      operationId: listTools
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Available tools
+
+  /tools/{id}:
+    get:
+      tags: [Tools]
+      summary: Get tool details
+      operationId: getTool
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tool details
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /subscription:
+    get:
+      tags: [Subscription]
+      summary: Get subscription
+      operationId: getSubscription
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Subscription details
+
+  /subscription/usage:
+    get:
+      tags: [Subscription]
+      summary: Get usage summary
+      operationId: getUsage
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Usage summary
+
+  /subscription/entitlements:
+    get:
+      tags: [Subscription]
+      summary: Get entitlements
+      operationId: getEntitlements
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Feature entitlements
+
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: List users
+      operationId: adminListUsers
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Paginated user list
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/users/{id}/suspend:
+    post:
+      tags: [Admin]
+      summary: Suspend user
+      operationId: suspendUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: User suspended
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/users/{id}/reactivate:
+    post:
+      tags: [Admin]
+      summary: Reactivate user
+      operationId: reactivateUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User reactivated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/audit:
+    get:
+      tags: [Admin]
+      summary: Query audit logs
+      operationId: queryAudit
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: actorId
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Audit logs
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/prompts:
+    get:
+      tags: [Admin]
+      summary: List prompts
+      operationId: listPrompts
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: System prompts
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [Admin]
+      summary: Create prompt
+      operationId: createPrompt
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, content]
+              properties:
+                name:
+                  type: string
+                content:
+                  type: string
+      responses:
+        '201':
+          description: Prompt created
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/prompts/{id}:
+    get:
+      tags: [Admin]
+      summary: Get prompt
+      operationId: getPrompt
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Prompt details
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    patch:
+      tags: [Admin]
+      summary: Update prompt
+      operationId: updatePrompt
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Prompt updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/prompts/{id}/activate:
+    post:
+      tags: [Admin]
+      summary: Activate prompt
+      operationId: activatePrompt
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Prompt activated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/approvals:
+    get:
+      tags: [Admin]
+      summary: List pending approvals
+      operationId: listApprovals
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Pending approval requests
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/approvals/{id}:
+    get:
+      tags: [Admin]
+      summary: Get approval request
+      operationId: getApproval
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Approval request details
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [Admin]
+      summary: Process approval
+      operationId: processApproval
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [approve, reject]
+                comment:
+                  type: string
+      responses:
+        '200':
+          description: Approval processed
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ChatId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+    MemoryId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+    KnowledgeId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Forbidden:
+      description: Permission denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_ERROR
+                - UNAUTHORIZED
+                - PERMISSION_DENIED
+                - NOT_FOUND
+                - RATE_LIMITED
+                - INTERNAL_ERROR
+            message:
+              type: string
+            requestId:
+              type: string
+
+    ChatResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            userId:
+              type: string
+            title:
+              type: string
+              nullable: true
+            status:
+              type: string
+              enum: [active, archived]
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    PaginatedChatList:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  title:
+                    type: string
+                    nullable: true
+                  status:
+                    type: string
+                  messageCount:
+                    type: integer
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+            nextCursor:
+              type: string
+              nullable: true
+            hasMore:
+              type: boolean
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    ProfileResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            userId:
+              type: string
+            displayName:
+              type: string
+              nullable: true
+            avatarUrl:
+              type: string
+              nullable: true
+            timezone:
+              type: string
+            locale:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    PreferencesResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            userId:
+              type: string
+            responseLength:
+              type: string
+              enum: [concise, balanced, detailed]
+            formality:
+              type: string
+              enum: [casual, neutral, formal]
+            allowMemory:
+              type: boolean
+            allowWebSearch:
+              type: boolean
+            customInstructions:
+              type: string
+              nullable: true
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    Meta:
+      type: object
+      required: [requestId]
+      properties:
+        requestId:
+          type: string
