@@ -1,3 +1,2 @@
 npm run typecheck
-cd frontend && npx tsc -b && cd ..
 npx lint-staged
